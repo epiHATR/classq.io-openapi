@@ -55,7 +55,7 @@ Run the published image:
 docker run --rm -p 8089:80 ghcr.io/epihatr/classq.io-openapi:latest
 ```
 
-The docs are on port 80 inside the container. The OpenAPI file is at `/openapi.yaml`.
+The container serves the Scalar API reference on port 80. The OpenAPI file is at `/openapi.yaml`.
 
 ## If the workflow fails
 

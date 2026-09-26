@@ -23,7 +23,7 @@ npm run lint
 npm run preview
 ```
 
-Preview serves the docs at <http://127.0.0.1:8089>. The preview script uses Redocly CLI 1, because CLI 2 removed `preview-docs`. Lint still uses the CLI 2 installed in this project.
+Preview serves the Scalar API reference at <http://127.0.0.1:8089>. Lint still uses Redocly CLI.
 
 ## When the API changes
 

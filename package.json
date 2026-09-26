@@ -5,9 +5,11 @@
   "description": "OpenAPI contract for the ClassQ.io HTTP API",
   "scripts": {
     "lint": "redocly lint openapi.yaml",
-    "preview": "npx --yes @redocly/cli@1.34.6 preview-docs openapi.yaml --port 8089"
+    "build:docs": "node scripts/build-docs.mjs",
+    "preview": "node scripts/preview.mjs"
   },
   "devDependencies": {
-    "@redocly/cli": "^2.31.8"
+    "@redocly/cli": "^2.31.8",
+    "@scalar/server-side-rendering": "^0.1.53"
   }
 }
