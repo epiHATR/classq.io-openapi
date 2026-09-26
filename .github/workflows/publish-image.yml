@@ -1,12 +1,9 @@
-name: Publish container image
+name: Publish image from tag
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*"
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,8 +15,34 @@ jobs:
     name: Build and push
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Normalize release tag
+        id: normalize
+        run: |
+          set -euo pipefail
+          RAW="$(printf '%s' "$GITHUB_REF_NAME" | tr -d '[:space:]')"
+          if [[ ! "$RAW" =~ ^v[0-9] ]]; then
+            echo "Release tag must look like v1.1.10 (got: $RAW)" >&2
+            exit 1
+          fi
+          echo "tag=$RAW" >> "$GITHUB_OUTPUT"
+          echo "version=${RAW#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout tag
         uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Check bumped version matches the tag
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.normalize.outputs.version }}"
+          SPEC_VERSION="$(awk '/^  version: / { print $2; exit }' openapi.yaml)"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$SPEC_VERSION" != "$VERSION" || "$PKG_VERSION" != "$VERSION" ]]; then
+            echo "Tag is v${VERSION}, but openapi.yaml is ${SPEC_VERSION} and package.json is ${PKG_VERSION}." >&2
+            echo "Run ./scripts/bump-version.sh ${VERSION}, commit, and push that commit before tagging." >&2
+            exit 1
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -31,23 +54,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract image metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+      - name: Derive image tags
+        id: vars
+        run: |
+          set -euo pipefail
+          RELEASE_TAG="${{ steps.normalize.outputs.tag }}"
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          TAGS="${IMAGE}:${RELEASE_TAG}"
+          if [[ "$RELEASE_TAG" != *-* ]]; then
+            TAGS="${TAGS},${IMAGE}:latest"
+          fi
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.vars.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
